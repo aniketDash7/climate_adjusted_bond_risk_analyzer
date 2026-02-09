@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+duckdb
+pandas
+geopandas
+shapely
+rasterio
+matplotlib
+plotly
+scikit-learn
+requests
+numpy
