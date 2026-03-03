@@ -12,8 +12,8 @@ function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const bondRes = await axios.get('http://localhost:8000/api/bonds')
-        const statRes = await axios.get('http://localhost:8000/api/stats')
+        const bondRes = await axios.get('http://localhost:5000/api/bonds')
+        const statRes = await axios.get('http://localhost:5000/api/stats')
         setBonds(bondRes.data)
         setStats(statRes.data)
         setLoading(false)
