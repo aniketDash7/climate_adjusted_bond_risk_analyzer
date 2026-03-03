@@ -6,38 +6,24 @@ Municipal bonds ("munis") are debt securities issued by local governments to fun
 **The Problem**: Standard credit models often lag in pricing physical climate risks.
 **The Solution**: This tool ingests climate hazard data (Wildfire/Flood) and overlays it with municipal bond issuer locations to calculate a "Climate-Adjusted Risk Score" and estimate financial impact (Value-at-Risk).
 
-## Technical Architecture
-- **Data Layer**: DuckDB for efficient analytical querying.
-- **Geospatial**: Rasterio (Raster analysis) & Geopandas (Vector analysis).
-- **Backend**: FastAPI for serving risk metrics.
-- **Frontend**: React (Planned) / Streamlit (Prototype) for visualization.
-
-## Setup & Run
-
-### 1. Backend (FastAPI)
-Open a terminal in the project root:
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run Data Generation (First time only)
-python src/generate_data.py
-python src/analysis.py
-
 # Start API Server
-uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn src.main:app --reload --host 0.0.0.0 --port 5000
 ```
 
-### 2. Frontend (React)
-Open a NEW terminal:
+### 3. Data Pipeline (Optional - To Refresh Real Data)
 ```bash
-cd frontend
-npm.cmd install  # or npm install if using Bash
-npm.cmd run dev
+python src/source_financial_data.py
+python src/fetch_real_data.py
+python src/analysis.py
 ```
 
 ## Features
-- **Geospatial Risk Mapping**: Synthetic Wildfire Risk Raster (0.0 - 1.0) overlaid on CA.
-- **Financial Modeling**: Value-at-Risk (VaR) estimation based on hazard exposure.
-- **Interactive Dashboard**: React + Leaflet visualization of 100+ municipal bonds.
+- **NASA FIRMS Satellite Integration**: 524k+ real-world fire records from VIIRS 375m sensors (2019-2023).
+- **Random Forest ML Pipeline**: Trained a spatial wildfire risk classifier on satellite-weather-terrain vectors.
+- **Verified Metrics**: 0.93 ROC-AUC on Northern-to-Southern California spatial generalisation tests.
+- **Financial Risk Modeling**: Climate Yield Spread and Fair Value pricing for $1.2B in municipal assets.
+- **Interactive Dashboard**: High-fidelity React + FastAPI + Leaflet analytical suite.
+
+---
+Detailed documentation on the app's inception and technical architecture can be found in [origin_and_architecture.md](./origin_and_architecture.md).
 

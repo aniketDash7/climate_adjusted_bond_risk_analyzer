@@ -14,8 +14,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import os
+
+# Base directory (project root)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, "data", "climate_risk.duckdb")
+
 # Connect to DB (Read Only)
-con = duckdb.connect("data/climate_risk.duckdb", read_only=True)
+con = duckdb.connect(DB_PATH, read_only=True)
 
 @app.get("/")
 def health_check():
@@ -43,9 +49,11 @@ def get_stats():
         "total_exposure": float(total_exposure),
         "total_var": float(total_var),
         "avg_risk_score": float(avg_risk),
-        "high_risk_bonds": int(len(df[df['risk_score'] > 0.7]))
+        "high_risk_bonds": int(len(df[df['risk_score'] > 0.7])),
+        "avg_spread_bps": float(df['climate_spread_bps'].mean()) if 'climate_spread_bps' in df.columns else 0.0,
+        "num_bonds": int(len(df))
     }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=5000)

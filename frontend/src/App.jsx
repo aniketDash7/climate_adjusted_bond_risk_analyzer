@@ -61,6 +61,14 @@ function App() {
               <div className="stat-label">High Risk Bonds</div>
               <div className="stat-value">{stats.high_risk_bonds}</div>
             </div>
+            <div className="stat-card">
+              <div className="stat-label">Avg Climate Spread</div>
+              <div className="stat-value" style={{ color: '#f59e0b' }}>+{(stats.avg_spread_bps || 0).toFixed(0)} bps</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Portfolio Size</div>
+              <div className="stat-value">{stats.num_bonds || 0} Bonds</div>
+            </div>
           </div>
         )}
 
@@ -91,11 +99,12 @@ function App() {
                 <div style={{ color: '#0f172a' }}>
                   <strong>{bond.issuer}</strong> <span style={{ fontSize: '0.8em', color: '#64748b' }}>({bond.bond_id})</span><br />
                   <div style={{ margin: '4px 0', padding: '4px', background: '#f1f5f9', borderRadius: '4px' }}>
-                    Rating: <strong>{bond.rating}</strong> | Yld: {bond.coupon_rate.toFixed(2)}%
+                    Rating: <strong>{bond.rating || 'N/A'}</strong> | Yld: {(bond.coupon_rate || 0).toFixed(2)}%
                   </div>
-                  Risk Score: {(bond.risk_score).toFixed(2)}<br />
-                  Climate Spread: <span style={{ color: '#ef4444' }}>+{(bond.climate_spread_bps).toFixed(0)} bps</span><br />
-                  Fair Value: <strong>{(bond.fair_value_yield).toFixed(2)}%</strong>
+                  Risk Score: {(bond.risk_score || 0).toFixed(2)}<br />
+                  Climate Spread: <span style={{ color: '#ef4444' }}>+{(bond.climate_spread_bps || 0).toFixed(0)} bps</span><br />
+                  Fair Value: <strong>{(bond.fair_value_yield || 0).toFixed(2)}%</strong><br />
+                  VaR: ${((bond.VaR_Amount || 0) / 1e6).toFixed(2)}M
                 </div>
               </Popup>
             </CircleMarker>
