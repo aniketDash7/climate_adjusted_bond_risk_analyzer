@@ -85,6 +85,7 @@ function App() {
                 <HazardBar label="Fire" value={stats.avg_wildfire || 0} color="#e63946" emoji="🔥" />
                 <HazardBar label="Flood" value={stats.avg_flood || 0} color="#457b9d" emoji="🌊" />
                 <HazardBar label="Quake" value={stats.avg_earthquake || 0} color="#6d6875" emoji="🌍" />
+                <HazardBar label="NDVI" value={stats.avg_ndvi || 0} color="#2d6a4f" emoji="🌿" />
               </div>
             </div>
 
@@ -96,8 +97,8 @@ function App() {
         )}
 
         <div style={{ marginTop: 'auto', fontSize: '0.6rem', color: '#999', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: '1.6' }}>
-          Sources: NASA FIRMS &middot; FEMA NRI &middot; USGS<br/>
-          Model: RF (0.93 AUC) &middot; Composite: 50/30/20
+          Sources: NASA FIRMS &middot; FEMA NRI &middot; Sentinel-2<br/>
+          Model: RF (0.93 AUC) &middot; NDVI-adjusted Composite
         </div>
       </div>
 
@@ -125,9 +126,10 @@ function App() {
                   <div className="popup-title">{(bond.issuer || '').toUpperCase()}</div>
 
                   <div style={{ margin: '8px 0', padding: '8px', background: '#f9f9f9', borderRadius: '4px' }}>
-                    <HazardBar label="Fire" value={bond.wildfire_score || 0}    color="#e63946" emoji="🔥" />
+                    <HazardBar label="Fire" value={bond.wildfire_adjusted || bond.wildfire_score || 0}    color="#e63946" emoji="🔥" />
                     <HazardBar label="Flood" value={bond.flood_score || 0}       color="#457b9d" emoji="🌊" />
                     <HazardBar label="Quake" value={bond.earthquake_score || 0}  color="#6d6875" emoji="🌍" />
+                    <HazardBar label="NDVI" value={bond.ndvi || 0}               color="#2d6a4f" emoji="🌿" />
                   </div>
 
                   <div className="popup-row">
@@ -151,11 +153,11 @@ function App() {
 
           <div className="legend-pill">
             <div className="legend-item">
-              <span>🔥 50% + 🌊 30% + 🌍 20% = Composite Risk</span>
+              <span>🔥 Fire (NDVI-adj) + 🌊 Flood + 🌍 Quake = Composite</span>
             </div>
             <div style={{ color: '#ccc' }}>|</div>
             <div className="legend-item">
-              <span>Sources: NASA FIRMS &middot; FEMA NRI &middot; USGS</span>
+              <span>FIRMS &middot; FEMA NRI &middot; Sentinel-2</span>
             </div>
           </div>
         </MapContainer>

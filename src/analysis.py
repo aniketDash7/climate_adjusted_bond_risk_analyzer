@@ -19,6 +19,7 @@ con = duckdb.connect(DB_PATH)
 
 RF_MODEL_PATH = os.path.join(MODELS_DIR, "wildfire_rf_model.pkl")
 HAZARD_CSV    = os.path.join(DATA_DIR, "hazard_layers.csv")
+NDVI_CSV      = os.path.join(DATA_DIR, "ndvi_scores.csv")
 
 FEATURES = [
     "latitude", "longitude",
@@ -113,16 +114,35 @@ def calculate_risk():
         df['flood_score']      = 0.30
         df['earthquake_score'] = 0.30
 
-    # --- 3. Weighted Composite Score ---
+    # --- 3. NDVI Vegetation Dryness (Sentinel-2) ---
+    if os.path.exists(NDVI_CSV):
+        print(f"Loading NDVI from {NDVI_CSV}...")
+        ndvi_df = pd.read_csv(NDVI_CSV)
+        merge_cols = [c for c in ['bond_id', 'ndvi', 'fuel_class'] if c in ndvi_df.columns]
+        df = df.merge(ndvi_df[merge_cols], on='bond_id', how='left', suffixes=('', '_ndvi'))
+        df['ndvi'] = df['ndvi'].fillna(0.35)
+        df['fuel_class'] = df['fuel_class'].fillna('Moderate')
+        # Modulate wildfire: low NDVI amplifies fire risk by up to 30%
+        ndvi_factor = 1 + (1 - df['ndvi'].clip(0, 1)) * 0.3
+        df['wildfire_adjusted'] = (df['wildfire_score'] * ndvi_factor).clip(0, 1)
+        print(f"  NDVI range: {df['ndvi'].min():.3f} - {df['ndvi'].max():.3f}")
+        print(f"  Wildfire adjusted: {df['wildfire_adjusted'].min():.3f} - {df['wildfire_adjusted'].max():.3f}")
+    else:
+        print("WARNING: ndvi_scores.csv not found. Run fetch_ndvi.py first.")
+        df['ndvi'] = 0.35
+        df['fuel_class'] = 'Moderate'
+        df['wildfire_adjusted'] = df['wildfire_score']
+
+    # --- 4. Weighted Composite Score ---
     df['composite_score'] = (
-        W_FIRE  * df['wildfire_score'] +
+        W_FIRE  * df['wildfire_adjusted'] +
         W_FLOOD * df['flood_score'] +
         W_QUAKE * df['earthquake_score']
     )
     df['risk_score'] = df['composite_score']   # backward compat
 
     print(f"\n  Composite score -> min={df['composite_score'].min():.3f}  max={df['composite_score'].max():.3f}")
-    print(f"  Weights: Fire={W_FIRE}, Flood={W_FLOOD}, Earthquake={W_QUAKE}")
+    print(f"  Weights: Fire={W_FIRE} (NDVI-adjusted), Flood={W_FLOOD}, Earthquake={W_QUAKE}")
 
     # --- Financial Impact Model ---
     df['climate_spread_bps'] = df['composite_score'] * 100
@@ -136,9 +156,9 @@ def calculate_risk():
     out_csv = os.path.join(DATA_DIR, "bonds_scored.csv")
     df.to_csv(out_csv, index=False)
 
-    cols = ['issuer', 'wildfire_score', 'flood_score', 'earthquake_score', 'composite_score']
+    cols = ['issuer', 'ndvi', 'wildfire_adjusted', 'flood_score', 'earthquake_score', 'composite_score']
     cols = [c for c in cols if c in df.columns]
-    print("\nMulti-Hazard Risk Calculation Complete.")
+    print("\nMulti-Hazard Risk Calculation Complete (with Sentinel-2 NDVI).")
     print(df[cols].head(10).to_string(index=False))
     print(f"\nExported {len(df)} scored bonds -> {out_csv}")
 
