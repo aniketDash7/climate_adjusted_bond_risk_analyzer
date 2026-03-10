@@ -54,6 +54,7 @@ def get_stats():
         "avg_flood":        float(df['flood_score'].mean()) if 'flood_score' in df.columns else 0.0,
         "avg_earthquake":   float(df['earthquake_score'].mean()) if 'earthquake_score' in df.columns else 0.0,
         "avg_ndvi":         float(df['ndvi'].mean()) if 'ndvi' in df.columns else 0.0,
+        "avg_dl_prob":      float(df['dl_fire_prob'].mean()) if 'dl_fire_prob' in df.columns else 0.0,
     }
 
 if __name__ == "__main__":

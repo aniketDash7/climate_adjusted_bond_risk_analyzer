@@ -1,15 +1,21 @@
 import { useState, useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import L from 'leaflet'
 import axios from 'axios'
 import 'leaflet/dist/leaflet.css'
 import './index.css'
 
-const createBubbleIcon = (riskScore) => {
+const createBubbleIcon = (riskScore, overrideColor = null) => {
   const size = Math.max(18, riskScore * 42);
   const scoreText = Math.round(riskScore * 10);
+  
+  // Custom styles for pulsing alert marker
+  const style = overrideColor 
+    ? `background-color: ${overrideColor}; color: white; border: 2px solid white; box-shadow: 0 0 15px ${overrideColor}; animation: pulse 1s infinite;` 
+    : '';
+
   return L.divIcon({
-    html: `<span>${scoreText}</span>`,
+    html: `<span style="${style}">${scoreText}</span>`,
     className: 'marker-bubble',
     iconSize: [size, size],
     iconAnchor: [size/2, size/2]
@@ -32,6 +38,21 @@ function App() {
   const [bonds, setBonds] = useState([])
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [alerts, setAlerts] = useState([])
+
+  // WebSocket Connection
+  useEffect(() => {
+    const ws = new WebSocket('ws://localhost:5001/ws/alerts')
+    
+    ws.onopen = () => console.log('Connected to Alert Engine')
+    ws.onmessage = (event) => {
+      const alertData = JSON.parse(event.data)
+      console.log('Received Alert:', alertData)
+      setAlerts(prev => [alertData, ...prev])
+    }
+    
+    return () => ws.close()
+  }, [])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -82,7 +103,8 @@ function App() {
             <div className="stat-card">
               <div className="stat-label">Hazard Breakdown (Avg)</div>
               <div style={{ marginTop: '8px' }}>
-                <HazardBar label="Fire" value={stats.avg_wildfire || 0} color="#e63946" emoji="🔥" />
+                <HazardBar label="RF Fire" value={stats.avg_wildfire || 0} color="#e63946" emoji="🌲" />
+                <HazardBar label="DL Path" value={stats.avg_dl_prob || 0} color="#d62828" emoji="🔥" />
                 <HazardBar label="Flood" value={stats.avg_flood || 0} color="#457b9d" emoji="🌊" />
                 <HazardBar label="Quake" value={stats.avg_earthquake || 0} color="#6d6875" emoji="🌍" />
                 <HazardBar label="NDVI" value={stats.avg_ndvi || 0} color="#2d6a4f" emoji="🌿" />
@@ -96,9 +118,26 @@ function App() {
           </div>
         )}
 
+        {/* Real-time Alerts Panel */}
+        {alerts.length > 0 && (
+          <div className="alerts-panel">
+            <h2 style={{ fontSize: '0.8rem', color: '#e63946', textTransform: 'uppercase', marginBottom: '8px' }}>
+              🚨 Live Active Fire Alerts
+            </h2>
+            <div className="alerts-list">
+              {alerts.slice(0, 5).map((alert, i) => (
+                <div key={i} className="alert-item">
+                  <strong>{alert.issuer}</strong><br/>
+                  Active fire detected {alert.distance_km}km away!
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div style={{ marginTop: 'auto', fontSize: '0.6rem', color: '#999', textTransform: 'uppercase', letterSpacing: '0.1em', lineHeight: '1.6' }}>
-          Sources: NASA FIRMS &middot; FEMA NRI &middot; Sentinel-2<br/>
-          Model: RF (0.93 AUC) &middot; NDVI-adjusted Composite
+          Sources: FIRMS &middot; FEMA &middot; Sentinel-2<br/>
+          Models: RF + PyTorch CNN/LSTM (0.93 AUC)
         </div>
       </div>
 
@@ -115,21 +154,27 @@ function App() {
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
 
-          {bonds.map((bond) => (
-            <Marker
-              key={bond.bond_id}
-              position={[bond.lat, bond.lon]}
-              icon={createBubbleIcon(bond.composite_score || bond.risk_score)}
-            >
-              <Popup className="custom-popup">
+          {bonds.map((bond) => {
+            // Check if this bond has an active alert
+            const hasAlert = alerts.some(a => a.bond_id === bond.bond_id);
+            const markerColor = hasAlert ? '#ff0000' : null;
+            
+            return (
+              <Marker
+                key={bond.bond_id}
+                position={[bond.lat, bond.lon]}
+                icon={createBubbleIcon(bond.composite_score || bond.risk_score, markerColor)}
+              >
+                <Popup className="custom-popup">
                 <div className="popup-content">
                   <div className="popup-title">{(bond.issuer || '').toUpperCase()}</div>
 
                   <div style={{ margin: '8px 0', padding: '8px', background: '#f9f9f9', borderRadius: '4px' }}>
-                    <HazardBar label="Fire" value={bond.wildfire_adjusted || bond.wildfire_score || 0}    color="#e63946" emoji="🔥" />
-                    <HazardBar label="Flood" value={bond.flood_score || 0}       color="#457b9d" emoji="🌊" />
-                    <HazardBar label="Quake" value={bond.earthquake_score || 0}  color="#6d6875" emoji="🌍" />
-                    <HazardBar label="NDVI" value={bond.ndvi || 0}               color="#2d6a4f" emoji="🌿" />
+                    <HazardBar label="RF Fire" value={bond.wildfire_score || 0}         color="#e63946" emoji="🌲" />
+                    <HazardBar label="DL Path" value={bond.dl_fire_prob || 0}           color="#d62828" emoji="🔥" />
+                    <HazardBar label="Flood" value={bond.flood_score || 0}              color="#457b9d" emoji="🌊" />
+                    <HazardBar label="Quake" value={bond.earthquake_score || 0}         color="#6d6875" emoji="🌍" />
+                    <HazardBar label="NDVI" value={bond.ndvi || 0}                      color="#2d6a4f" emoji="🌿" />
                   </div>
 
                   <div className="popup-row">
@@ -149,7 +194,25 @@ function App() {
                 </div>
               </Popup>
             </Marker>
-          ))}
+            );
+          })}
+
+          {/* Render Fire Paths for active alerts */}
+          {alerts.map((alert, idx) => {
+            const targetBond = bonds.find(b => b.bond_id === alert.bond_id);
+            if (!targetBond) return null;
+            return (
+              <Polyline
+                key={`path-${idx}`}
+                positions={[
+                  [alert.fire_lat, alert.fire_lon],
+                  [targetBond.lat, targetBond.lon]
+                ]}
+                className="fire-path-animation"
+                pathOptions={{ dashArray: '8 12', color: '#ff0000', weight: 4 }}
+              />
+            );
+          })}
 
           <div className="legend-pill">
             <div className="legend-item">

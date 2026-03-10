@@ -194,3 +194,17 @@ body {
 .popup-value {
   font-weight: 700;
 }
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+.fire-path-animation {
+  stroke-dasharray: 8 12;
+  stroke: #ff0000;
+  stroke-width: 4px;
+  animation: dash 2s linear infinite;
+  opacity: 0.9;
+}
