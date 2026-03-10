@@ -6,6 +6,7 @@ import numpy as np
 import pickle
 import os
 import sys
+import time
 
 # Base directory (project root)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,11 +18,18 @@ MODELS_DIR = os.path.join(BASE_DIR, "models")
 con = duckdb.connect(DB_PATH)
 
 RF_MODEL_PATH = os.path.join(MODELS_DIR, "wildfire_rf_model.pkl")
+HAZARD_CSV    = os.path.join(DATA_DIR, "hazard_layers.csv")
+
 FEATURES = [
     "latitude", "longitude",
     "temperature", "humidity", "wind_speed", "precipitation",
     "month", "day_of_year",
 ]
+
+# Composite weights
+W_FIRE  = 0.50
+W_FLOOD = 0.30
+W_QUAKE = 0.20
 
 def ingest_data():
     """Loads GeoJSON and Metadata into DuckDB."""
@@ -62,53 +70,65 @@ def fetch_live_weather_for_bonds(df):
     return df
 
 def calculate_risk():
-    """Score bonds using the trained Random Forest model, or FWI heuristic as fallback."""
-    print("Calculating Physical Risk Scores...")
+    """Score bonds using RF wildfire model + FEMA flood/earthquake -> composite."""
+    print("Calculating Multi-Hazard Risk Scores...")
     df = con.execute("SELECT * FROM bonds").fetchdf()
 
-    # Fetch live weather for each bond
+    # --- 1. Wildfire (RF Model) ---
     print("Fetching live weather for bond locations...")
     df = fetch_live_weather_for_bonds(df)
 
-    # Add temporal features (current date)
     from datetime import datetime
     now = datetime.utcnow()
     df['month']       = now.month
     df['day_of_year'] = now.timetuple().tm_yday
 
-    # Satellite-based features - for inference at bond locations (not active fires)
-    # Note: These are no longer in FEATURES used by the model
-    df['frp']        = 0.0
-    df['bright_ti4'] = 285.0
-
     if os.path.exists(RF_MODEL_PATH):
-        print("Using trained Random Forest model (FIRMS VIIRS 375m, 2019-2023)...")
+        print("Using trained Random Forest model for wildfire scoring...")
         with open(RF_MODEL_PATH, "rb") as f:
             rf = pickle.load(f)
-
         df['latitude']  = df['lat']
         df['longitude'] = df['lon']
-
         X = df[FEATURES]
-        df['risk_score'] = rf.predict_proba(X)[:, 1]   # P(fire) at each bond location
-        print(f"  RF model scores -> min={df['risk_score'].min():.3f}  max={df['risk_score'].max():.3f}")
+        df['wildfire_score'] = rf.predict_proba(X)[:, 1]
+        print(f"  RF wildfire scores -> min={df['wildfire_score'].min():.3f}  max={df['wildfire_score'].max():.3f}")
     else:
-        print("RF model not found - using OpenMeteo FWI heuristic fallback...")
-        real_data_path = "data/real_risk_zones.geojson"
-        if os.path.exists(real_data_path):
-            bonds_gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.lon, df.lat), crs="EPSG:4326")
-            risk_gdf  = gpd.read_file(real_data_path).rename(columns={'risk_score': 'climate_risk_score'})
-            joined    = gpd.sjoin(bonds_gdf, risk_gdf[['geometry', 'climate_risk_score', 'name']], how="left", predicate="within")
-            joined['risk_score'] = joined['climate_risk_score'].fillna(0.1)
-            df = pd.DataFrame(joined.drop(columns=['geometry', 'index_right', 'climate_risk_score'], errors='ignore'))
-        else:
-            df['risk_score'] = np.random.uniform(0.05, 0.5, len(df))
+        print("RF model not found - using default wildfire score...")
+        df['wildfire_score'] = 0.30
+
+    # --- 2. Flood + Earthquake (from FEMA NRI hazard layers) ---
+    if os.path.exists(HAZARD_CSV):
+        print(f"Loading hazard layers from {HAZARD_CSV}...")
+        hazard_df = pd.read_csv(HAZARD_CSV)
+        # Merge on bond_id
+        merge_cols = ['bond_id', 'flood_score', 'earthquake_score']
+        merge_cols = [c for c in merge_cols if c in hazard_df.columns]
+        df = df.merge(hazard_df[merge_cols], on='bond_id', how='left', suffixes=('', '_hazard'))
+        df['flood_score']      = df['flood_score'].fillna(0.30)
+        df['earthquake_score'] = df['earthquake_score'].fillna(0.30)
+        print(f"  Flood scores   -> min={df['flood_score'].min():.3f}  max={df['flood_score'].max():.3f}")
+        print(f"  Earthquake     -> min={df['earthquake_score'].min():.3f}  max={df['earthquake_score'].max():.3f}")
+    else:
+        print("WARNING: hazard_layers.csv not found. Run fetch_hazard_layers.py first.")
+        df['flood_score']      = 0.30
+        df['earthquake_score'] = 0.30
+
+    # --- 3. Weighted Composite Score ---
+    df['composite_score'] = (
+        W_FIRE  * df['wildfire_score'] +
+        W_FLOOD * df['flood_score'] +
+        W_QUAKE * df['earthquake_score']
+    )
+    df['risk_score'] = df['composite_score']   # backward compat
+
+    print(f"\n  Composite score -> min={df['composite_score'].min():.3f}  max={df['composite_score'].max():.3f}")
+    print(f"  Weights: Fire={W_FIRE}, Flood={W_FLOOD}, Earthquake={W_QUAKE}")
 
     # --- Financial Impact Model ---
-    df['climate_spread_bps'] = df['risk_score'] * 100
+    df['climate_spread_bps'] = df['composite_score'] * 100
     df['fair_value_yield']   = df['coupon_rate'] + (df['climate_spread_bps'] / 100)
     df['mispricing_bps']     = (df['fair_value_yield'] - df['coupon_rate']) * 100
-    df['VaR_Amount']         = df['outstanding_amount'] * df['risk_score'] * 0.4
+    df['VaR_Amount']         = df['outstanding_amount'] * df['composite_score'] * 0.4
 
     # Save
     con.execute("DROP TABLE IF EXISTS bonds")
@@ -116,8 +136,9 @@ def calculate_risk():
     out_csv = os.path.join(DATA_DIR, "bonds_scored.csv")
     df.to_csv(out_csv, index=False)
 
-    cols = [c for c in ['issuer', 'rating', 'risk_score', 'coupon_rate', 'fair_value_yield'] if c in df.columns]
-    print("\nRisk Calculation Complete.")
+    cols = ['issuer', 'wildfire_score', 'flood_score', 'earthquake_score', 'composite_score']
+    cols = [c for c in cols if c in df.columns]
+    print("\nMulti-Hazard Risk Calculation Complete.")
     print(df[cols].head(10).to_string(index=False))
     print(f"\nExported {len(df)} scored bonds -> {out_csv}")
 
