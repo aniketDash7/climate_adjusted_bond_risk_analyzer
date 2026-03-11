@@ -59,44 +59,22 @@ class FirePathNet(nn.Module):
         out = self.fc(last_out)
         return self.sigmoid(out)
 
-def create_synthetic_sequences(num_samples=1000, seq_len=7, num_features=5):
+def load_real_sequences():
     """
-    Because full high-frequency historical weather for every bond requires a massive API pull,
-    we create synthetic sequences to demonstrate the capability.
-    Features: [Temp, Humidity, WindSpeed, Precip, NDVI]
-    Labels: 1 if conditions get progressively worse (hot, dry, windy), 0 otherwise
+    Load the real historical 7-day weather sequences fetched via OpenMeteo.
+    X_real.npy: (N_samples, 7_days, 5_features)
+    y_real.npy: (N_samples, 1)
     """
-    print("Generating synthetic weather sequences for DL model training...")
-    X = np.zeros((num_samples, seq_len, num_features))
-    y = np.zeros((num_samples, 1))
+    print(f"Loading real weather sequences from {DATA_DIR}...")
+    X_path = os.path.join(DATA_DIR, "X_real.npy")
+    y_path = os.path.join(DATA_DIR, "y_real.npy")
     
-    for i in range(num_samples):
-        # Base conditions
-        is_fire = np.random.rand() > 0.5
+    if not os.path.exists(X_path) or not os.path.exists(y_path):
+        raise FileNotFoundError("Real dataset not found. Run generate_dl_dataset.py first.")
         
-        if is_fire:
-            # Worsening conditions (Temp up, Humidity down, Wind up)
-            temps = np.linspace(25, 40, seq_len) + np.random.normal(0, 2, seq_len)
-            humids = np.linspace(50, 10, seq_len) + np.random.normal(0, 5, seq_len)
-            winds = np.linspace(10, 30, seq_len) + np.random.normal(0, 3, seq_len)
-            precips = np.zeros(seq_len)
-            ndvis = np.linspace(0.4, 0.1, seq_len) + np.random.normal(0, 0.05, seq_len)
-            y[i] = 1.0
-        else:
-            # Stable/improving conditions
-            temps = np.random.normal(20, 5, seq_len)
-            humids = np.random.normal(60, 10, seq_len)
-            winds = np.random.normal(10, 5, seq_len)
-            precips = np.random.exponential(1, seq_len)
-            ndvis = np.random.normal(0.5, 0.1, seq_len)
-            y[i] = 0.0
-            
-        X[i, :, 0] = temps
-        X[i, :, 1] = humids
-        X[i, :, 2] = winds
-        X[i, :, 3] = precips
-        X[i, :, 4] = ndvis
-        
+    X = np.load(X_path)
+    y = np.load(y_path)
+    
     # Simple standardization
     feature_means = X.mean(axis=(0,1))
     feature_stds = X.std(axis=(0,1)) + 1e-8
@@ -113,7 +91,7 @@ def main():
     print("Training CNN+LSTM for Fire Path Prediction")
     print("="*60)
     
-    X, y = create_synthetic_sequences(num_samples=5000, seq_len=7)
+    X, y = load_real_sequences()
     
     dataset = TensorDataset(X, y)
     train_size = int(0.8 * len(dataset))
