@@ -49,5 +49,4 @@ python src/run_pipeline.py
 - `src/analysis.py`: Portfolio scoring and yield-spread engine.
 - `data/bonds_scored.csv`: Final risk-priced municipal portfolio.
 
----
-Detailed technical breakdowns and roadmap logs can be found in the [brain/walkthrough.md](./brain/walkthrough.md) and [tasks.md](./brain/tasks.md) artifacts.
+Detailed technical breakdowns and roadmap logs can be found in the [technical_working_business_impact.md](./technical_working_business_impact.md) and [walkthrough.md](./brain/walkthrough.md) artifacts.
