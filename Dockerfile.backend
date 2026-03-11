@@ -1,0 +1,23 @@
+# Dockerfile.backend
+FROM python:3.14-slim
+
+WORKDIR /app
+
+# Install system dependencies for GDAL/Rasterio
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libgdal-dev \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# Expose ports for FastAPI and WebSocket
+EXPOSE 8000
+EXPOSE 5001
+
+# Command to run both servers concurrently (simpler for MVP)
+CMD ["sh", "-c", "python src/main.py & python src/alert_engine.py"]

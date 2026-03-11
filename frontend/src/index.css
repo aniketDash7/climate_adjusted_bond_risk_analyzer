@@ -208,3 +208,10 @@ body {
   animation: dash 2s linear infinite;
   opacity: 0.9;
 }
+
+/* Tooltip Styling */
+.tooltip {
+  position: relative;
+  cursor: help;
+  border-bottom: 1px dotted #ccc;
+}

@@ -1,29 +1,53 @@
 # Climate-Adjusted Municipal Bond Risk Analyzer
 
-## Business Context (The "Why")
-Municipal bonds ("munis") are debt securities issued by local governments to fund public projects. Traditionally, credit ratings for these bonds rely on financial metrics (tax base, outstanding debt). However, climate change poses a material risk to the underlying assets and tax base—a town destroyed by wildfire cannot repay its debts.
-
-**The Problem**: Standard credit models often lag in pricing physical climate risks.
-**The Solution**: This tool ingests climate hazard data (Wildfire/Flood) and overlays it with municipal bond issuer locations to calculate a "Climate-Adjusted Risk Score" and estimate financial impact (Value-at-Risk).
-
-# Start API Server
-uvicorn src.main:app --reload --host 0.0.0.0 --port 5000
-```
-
-### 3. Data Pipeline (Optional - To Refresh Real Data)
-```bash
-python src/source_financial_data.py
-python src/fetch_real_data.py
-python src/analysis.py
-```
-
-## Features
-- **NASA FIRMS Satellite Integration**: 524k+ real-world fire records from VIIRS 375m sensors (2019-2023).
-- **Random Forest ML Pipeline**: Trained a spatial wildfire risk classifier on satellite-weather-terrain vectors.
-- **Verified Metrics**: 0.93 ROC-AUC on Northern-to-Southern California spatial generalisation tests.
-- **Financial Risk Modeling**: Climate Yield Spread and Fair Value pricing for $1.2B in municipal assets.
-- **Interactive Dashboard**: High-fidelity React + FastAPI + Leaflet analytical suite.
+## Executive Summary
+This platform is an institutional-grade Geospatial ML suite designed to solve the mispricing of physical climate risk in the $4 trillion municipal bond market. By synthesizing real-time satellite imagery, daily weather vectors, and historical climate patterns, it quantifies the specific "Climate Spread" (yield penalty) per bond across a $1.2B portfolio.
 
 ---
-Detailed documentation on the app's inception and technical architecture can be found in [origin_and_architecture.md](./origin_and_architecture.md).
 
+## 🛠 Features & Architecture
+
+### 1. Multi-Hazard Analytical Engine
+- **Wildfire (RF Model)**: Trained a Scikit-Learn Random Forest on 524k+ NASA FIRMS records with 0.93 AUC.
+- **Fire Path Prediction (PyTorch)**: Implemented a 1D CNN + LSTM temporal model trained on 7-day historical weather sequences to predict imminent spread probabilities.
+- **Vegetation Health (NDVI)**: Ingests real-time Sentinel-2 L2A satellite imagery via Microsoft Planetary Computer (STAC/COG) to dynamically modulate fire risk based on current vegetation dryness.
+- **FEMA Integration**: Spatial joins for county-level flood and earthquake risk using the FEMA National Risk Index.
+
+### 2. Real-Time Alerting (WebSockets)
+- A standalone FastAPI service that polls NASA FIRMS active fire detections every 30 seconds.
+- Emits live "Red Alerts" to the dashboard when a fire is detected within 5km of an asset, complete with animated fire path trajectory highlights on the map.
+
+### 3. Institutional Dashboard
+- Professional, emoji-free interface with tooltips explaining financial metrics like Basis Points (bps) and Normalized Risk Scores.
+- Interactive map showing asset-level risk layers and live alert streams.
+
+---
+
+## One-Click Execution
+
+### 1. Full Production Stack (Recommended)
+If you have Docker installed:
+```bash
+docker-compose up --build
+```
+- **Dashboard**: [http://localhost:80](http://localhost:80)
+- **API Backend**: Port 8000
+- **Alert Stream**: Port 5001
+
+### 2. Data Science Pipeline (Automation)
+To re-run the entire data fetch, NDVI processing, and ML training sequence:
+```bash
+python src/run_pipeline.py
+```
+
+---
+
+## Project Structure
+- `src/run_pipeline.py`: Master orchestration script.
+- `src/train_dl_model.py`: PyTorch CNN+LSTM training.
+- `src/alert_engine.py`: WebSocket live alert server.
+- `src/analysis.py`: Portfolio scoring and yield-spread engine.
+- `data/bonds_scored.csv`: Final risk-priced municipal portfolio.
+
+---
+Detailed technical breakdowns and roadmap logs can be found in the [brain/walkthrough.md](./brain/walkthrough.md) and [tasks.md](./brain/tasks.md) artifacts.

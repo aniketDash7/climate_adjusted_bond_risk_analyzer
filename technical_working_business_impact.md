@@ -2,45 +2,39 @@
 
 ## 1. Technical "Working" of the Project (End-to-End)
 
-The project is built as a specialized **Geospatail ML Pipeline** for institutional risk management:
+The project is built as a specialized **Geospatial ML Pipeline** for institutional risk management:
 
-### **Phase 1: High-Fidelity Data Ingestion**
--   **Satellite Fire Data**: We pull 5 years (2019–2023) of **NASA FIRMS (VIIRS 375m)** active fire detections for California. This dataset contains **524,507 high-confidence records**, representing nearly every major ignition in the state.
--   **Historical Weather Enrichment**: For every satellite coordinate, the pipeline hits the **OpenMeteo Historical API** to pull four critical vectors: **Max Temperature**, **Min Humidity**, **Max Wind Speed**, and **Precipitation**.
--   **Terrain & Seasonality**: We calculate the "Day of Year" and "Month" to account for the cyclical nature of fire seasons.
+### **Phase 1: Multi-Source Data Ingestion**
+-   **Satellite Fire Data**: Ingests 5+ years of **NASA FIRMS (VIIRS 375m)** active fire detections (524k+ records) to train core risk models.
+-   **Vegetation Health (Sentinel-2)**: Queries the **Microsoft Planetary Computer** for real-time multispectral imagery (B04/B08) to calculate **NDVI**. This allows the model to "see" how dry the brush is surrounding a specific municipal bond asset.
+-   **Multi-Hazard Layers**: Spatial joins for **FEMA Flood Risk** and **USGS Earthquake** datasets using the FEMA National Risk Index, providing a holistic climate profile.
 
-### **Phase 2: The Random Forest "Brain"**
--   We train a **Random Forest Classifier** to distinguish between active fire points (Satellite data) and random background "safe" points (sampled across California).
--   **Spatial Validation**: To prevent simple "memorization" of coordinates, we train on **Northern California** and test on **Southern California**.
--   **Verified Accuracy**: The model achieved a **0.93 ROC-AUC** and **88% spatial precision**, proving it has learned the *physics* of how weather impacts fire ignition.
+### **Phase 2: Hybrid ML Architecture**
+-   **Static Risk (Random Forest)**: A Scikit-Learn classifier (0.93 AUC) that evaluates geographic vulnerability based on weather, terrain, and vegetation.
+-   **Temporal Prediction (CNN+LSTM)**: A PyTorch Deep Learning model trained on **real 7-day historical weather sequences** from the OpenMeteo Archive API. It predicts the "trajectory" and probability of fire path movement for imminent threats.
 
-### **Phase 3: Portfolio Risk Modeling**
--   The **$1.2B Municipal Bond Portfolio** is ingested into **DuckDB** (a high-performance analytical warehouse).
--   **Real-Time Inference**: For each bond location, the backend queries the **current** live weather and feeds it into the trained model to get a "Wildfire Risk Score" (0.0 to 1.0 probability).
--   **Financial Quant**: It calculates the **Climate Yield Spread** (Risk Score × 100 bps) and **Value-at-Risk (VaR)** (Exposure × Risk × Loss-Given-Disaster).
+### **Phase 3: Real-Time Alerting & Portfolio Quant**
+-   **WebSockets Engine**: A live polling service that checks NASA FIRMS every 30 seconds and broadcasts alerts to the dashboard for assets within a 5km radius.
+-   **Financial Modeling**: The pipeline calculates the **Climate Yield Spread** (Risk Score × 100 bps) and **Value-at-Risk (VaR)**, translating raw climate physics into basis points for bond traders.
 
 ---
 
 ## 2. Business Impact (The "So What?")
 
-For an organization like **ICE Data Services** or an institutional bond fund, this prototype solves three massive real-world problems.
-
 ### **A. Alpha Generation & Price Discovery**
-Municipal bond markets are notoriously slow to price in climate externalities. By identifying bonds where the "ML-predicted risk" is significantly higher than the traditional yield reflects, an investor can avoid over-valuation or discover high-yield opportunities that others miss.
+Municipal bond markets are traditionally slow to price in climate externalities. By identifying bonds where the "ML-predicted risk" is significantly higher than the traditional yield reflects, an investor can avoid over-valuation or discover high-yield opportunities before the market adjusts.
 
-### **B. Predictive Portfolio Protection (Value-at-Risk)**
-Most firms measure risk *after* a disaster happens. This system measures **exposure probability** in real-time. A portfolio manager can see exactly which **$50M position** in the Portfolio is most exposed to *today's* specific heatwave and low-humidity anomalies across California.
+### **B. Predictive Portfolio Protection**
+Most firms measure risk *after* a disaster happens. This system measures **exposure probability** in real-time. A portfolio manager can see exactly which **$50M position** is most exposed to *today's* specific heatwave and low-humidity anomalies across California.
 
 ### **C. ESG Compliance & Reporting**
-New regulatory requirements (like SB 253 in CA) are forcing funds to provide scientifically backed transparency into their climate footprint and exposure. This tool provides a **defensible, satellite-validated quantitative proof** for ESG auditing.
+Regulatory requirements (like CA SB 253) now demand scientifically backed transparency. This tool provides a **defensible, satellite-validated quantitative proof** of climate exposure for institutional ESG auditing.
 
 ---
 
-## 3. Potential Next Steps (The Roadmap)
+## 3. Production Readiness & Orchestration
 
-To scale this from a "Professional Prototype" to an "Enterprise SaaS" tool:
-
-1.  **Multi-Hazard Scoring**: Integrate **FEMA Flood Risk** and **USGS Earthquake** datasets into a unified "Weighted Climate Composite Score."
-2.  **Sentinel-2 Imagery Integration**: Use multi-spectral satellite imagery to calculate **Normalized Difference Vegetation Index (NDVI)** to measure how "dry" the shrubs and trees near a bond location are.
-3.  **Real-Time Alerting Engine**: Connect the **NASA FIRMS polling script** to a **WebSocket** service that sends immediate "Red Alerts" to a trader's Slack or Bloomberg Terminal when a new fire is detected within 5km of an asset.
-4.  **Deep Learning (CNN+LSTM)**: Replace Random Forest with a temporal neural network that "predicts the path" of a fire over the next 48 hours for even earlier risk detection.
+The prototype has been hardened into an **Enterprise-Ready Stack**:
+1.  **Orchestration**: A master pipeline script (`run_pipeline.py`) automates the entire flow from data ingestion to model retraining.
+2.  **Containerization**: Fully Dockerized with `docker-compose`, providing one-click deployment for the Frontend, API Backend, and Alerting services.
+3.  **Roadmap**: Future cloud scaling involves migrating local DuckDB files to a **Snowflake** or **PostgreSQL+PostGIS** warehouse and deploying the services via **AWS Fargate**.

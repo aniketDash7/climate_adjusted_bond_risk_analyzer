@@ -101,18 +101,18 @@ function App() {
             </div>
 
             <div className="stat-card">
-              <div className="stat-label">Hazard Breakdown (Avg)</div>
+              <div className="stat-label tooltip" title="Scores are normalized indices from 0 (Safe) to 1 (Extreme Risk)">Hazard Breakdown (Avg)</div>
               <div style={{ marginTop: '8px' }}>
-                <HazardBar label="RF Fire" value={stats.avg_wildfire || 0} color="#e63946" emoji="🌲" />
-                <HazardBar label="DL Path" value={stats.avg_dl_prob || 0} color="#d62828" emoji="🔥" />
-                <HazardBar label="Flood" value={stats.avg_flood || 0} color="#457b9d" emoji="🌊" />
-                <HazardBar label="Quake" value={stats.avg_earthquake || 0} color="#6d6875" emoji="🌍" />
-                <HazardBar label="NDVI" value={stats.avg_ndvi || 0} color="#2d6a4f" emoji="🌿" />
+                <HazardBar label="RF Fire" value={stats.avg_wildfire || 0} color="#e63946" />
+                <HazardBar label="DL Path" value={stats.avg_dl_prob || 0} color="#d62828" />
+                <HazardBar label="Flood" value={stats.avg_flood || 0} color="#457b9d" />
+                <HazardBar label="Quake" value={stats.avg_earthquake || 0} color="#6d6875" />
+                <HazardBar label="NDVI" value={stats.avg_ndvi || 0} color="#2d6a4f" />
               </div>
             </div>
 
             <div className="stat-card">
-              <div className="stat-label">Avg Climate Spread</div>
+              <div className="stat-label tooltip" title="Basis Points (bps). 100 bps = 1.00% yield penalty modeled for physical risk.">Avg Climate Spread</div>
               <div className="stat-value">+{(stats.avg_spread_bps || 0).toFixed(0)} bps</div>
             </div>
           </div>
@@ -122,7 +122,7 @@ function App() {
         {alerts.length > 0 && (
           <div className="alerts-panel">
             <h2 style={{ fontSize: '0.8rem', color: '#e63946', textTransform: 'uppercase', marginBottom: '8px' }}>
-              🚨 Live Active Fire Alerts
+              Live Active Fire Alerts
             </h2>
             <div className="alerts-list">
               {alerts.slice(0, 5).map((alert, i) => (
@@ -170,11 +170,11 @@ function App() {
                   <div className="popup-title">{(bond.issuer || '').toUpperCase()}</div>
 
                   <div style={{ margin: '8px 0', padding: '8px', background: '#f9f9f9', borderRadius: '4px' }}>
-                    <HazardBar label="RF Fire" value={bond.wildfire_score || 0}         color="#e63946" emoji="🌲" />
-                    <HazardBar label="DL Path" value={bond.dl_fire_prob || 0}           color="#d62828" emoji="🔥" />
-                    <HazardBar label="Flood" value={bond.flood_score || 0}              color="#457b9d" emoji="🌊" />
-                    <HazardBar label="Quake" value={bond.earthquake_score || 0}         color="#6d6875" emoji="🌍" />
-                    <HazardBar label="NDVI" value={bond.ndvi || 0}                      color="#2d6a4f" emoji="🌿" />
+                    <HazardBar label="RF Fire" value={bond.wildfire_score || 0}         color="#e63946" />
+                    <HazardBar label="DL Path" value={bond.dl_fire_prob || 0}           color="#d62828" />
+                    <HazardBar label="Flood" value={bond.flood_score || 0}              color="#457b9d" />
+                    <HazardBar label="Quake" value={bond.earthquake_score || 0}         color="#6d6875" />
+                    <HazardBar label="NDVI" value={bond.ndvi || 0}                      color="#2d6a4f" />
                   </div>
 
                   <div className="popup-row">
@@ -184,7 +184,7 @@ function App() {
                     </span>
                   </div>
                   <div className="popup-row">
-                    <span className="popup-label">Climate Spread</span>
+                    <span className="popup-label tooltip" title="Estimated basis point yield premium required to offset climate risk.">Climate Spread</span>
                     <span className="popup-value">+{(bond.climate_spread_bps || 0).toFixed(0)} bps</span>
                   </div>
                   <div className="popup-row" style={{ borderTop: '1px solid #ddd', marginTop: '4px', paddingTop: '4px' }}>
@@ -216,7 +216,7 @@ function App() {
 
           <div className="legend-pill">
             <div className="legend-item">
-              <span>🔥 Fire (NDVI-adj) + 🌊 Flood + 🌍 Quake = Composite</span>
+              <span>Risk Composites = Fire (NDVI-adj) | Flood | Quake</span>
             </div>
             <div style={{ color: '#ccc' }}>|</div>
             <div className="legend-item">
